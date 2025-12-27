@@ -98,4 +98,4 @@ Follow these steps to set up the project locally.
 *   **AI Enhancements**: Using an LLM to generate custom example sentences or explain the word in the specific context of the article.
 
 ---
-*Created by [Your Name]*
+*Created by Yong Xie*
