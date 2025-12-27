@@ -12,19 +12,34 @@ class StoredWord {
     ) { }
 
     async addWord() {
-        if (!(await StoredWord.checkIfWordExists(this.word))) {
-            this.timestamp = new Date();
-            await localforage.setItem(this.word, this);
+        try {
+            if (!(await StoredWord.checkIfWordExists(this.word))) {
+                this.timestamp = new Date();
+                await localforage.setItem(this.word, this);
+            }
+        } catch (error) {
+            console.error('Failed to add word to local storage:', error);
+            throw error;
         }
     }
 
     static async removeWord(word: string) {
-        await localforage.removeItem(word);
+        try {
+            await localforage.removeItem(word);
+        } catch (error) {
+            console.error('Failed to remove word from local storage:', error);
+            throw error;
+        }
     }
 
     static async checkIfWordExists(word: string): Promise<boolean> {
-        const data = await localforage.getItem<StoredWord>(word);
-        return !!data;
+        try {
+            const data = await localforage.getItem<StoredWord>(word);
+            return !!data;
+        } catch (error) {
+            console.error('Failed to check if word exists in local storage:', error);
+            return false;
+        }
     }
 }
 

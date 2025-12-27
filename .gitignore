@@ -27,3 +27,4 @@ web-ext.config.ts
 
 src/models/ESupaKey.ts
 GEMINI.md
+build/

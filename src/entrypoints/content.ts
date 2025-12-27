@@ -23,9 +23,11 @@ export default defineContentScript({
         if (isEnglishString(selectedText)) {
 
           const target = e.target as HTMLElement;
-          let { textContent } = target;
-          // get the sentence that contains the selected word
-          let sentence = findRelatedSentence(selectedText, textContent!.split('.'));
+          const textContent = target.textContent || "";
+          
+          // Split by punctuation followed by space or end of string
+          const sentences = textContent.split(/(?<=[.!?])\s+/);
+          let sentence = findRelatedSentence(selectedText, sentences);
 
           const selectedWordPackage: TSelectedWordPackage = {
             selectedText,
@@ -50,13 +52,14 @@ export default defineContentScript({
 
 //find which sentence the selected word is in.
 function findRelatedSentence(selectedText: string, sentences: string[]): string {
-  let sentence: string = '';
-  const matches = sentences.filter((item) => new RegExp('\\b' + selectedText + '\\b', 'i').test(item));
-  if (matches.length > 0) {
-    sentence = matches[0] + '.';
-    sentence = sentence.replace(new RegExp('\\b' + selectedText + '\\b', 'gi'), `<span>${selectedText}</span>`)
+  const wordRegex = new RegExp('\\b' + selectedText + '\\b', 'i');
+  const match = sentences.find((item) => wordRegex.test(item));
+  
+  if (match) {
+    const highlightRegex = new RegExp('\\b' + selectedText + '\\b', 'gi');
+    return match.trim().replace(highlightRegex, (m) => `<span>${m}</span>`);
   }
-  return sentence
+  return '';
 }
 
 //if the selected word is in english or empty.

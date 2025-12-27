@@ -40,20 +40,27 @@ function SidePanel() {
 
   // fetch translation from supabase
   useEffect(() => {
+    let ignore = false;
     if (selectedWordPackage) {
       supabaseClient
         .from('dictionary_n')
         .select()
         .eq('word', selectedWordPackage.selectedText)
         .then((res) => {
-          if (res?.data && res?.data?.length > 0) {
-            // covert raw data to translated data
-            setTranslation(translationHandler(res.data[0] as ISupabaseRes));
-          } else {
-            setTranslation(undefined);
+          if (!ignore) {
+            if (res?.data && res?.data?.length > 0) {
+              // covert raw data to translated data
+              setTranslation(translationHandler(res.data[0] as ISupabaseRes));
+            } else {
+              setTranslation(undefined);
+            }
           }
-        })
+        });
     }
+
+    return () => {
+      ignore = true;
+    };
   }, [
     selectedWordPackage,
   ]);
