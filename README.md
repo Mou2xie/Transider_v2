@@ -1,101 +1,134 @@
-# Transider v2
+# Transider — 随手记单词
 
-> 🇬🇧 **Transider** — Your context-aware vocabulary companion.
->
-> *Seamlessly translate, save, and review words without leaving your workflow.*
+A Chrome Extension that helps you translate and save English words while browsing, preserving the original sentence context for better vocabulary retention.
 
-## 📖 Introduction
+## Features
 
-**Transider** solves a critical pain point in language learning: **loss of context**.
+- **Double-click to translate** — Double-click any English word on any webpage to see its definition, phonetic, Chinese translation, and word-form exchanges in a side panel.
+- **Context-aware saving** — Save words with the sentence and source URL where you found them, so you can review vocabulary in its original context.
+- **Smart notebook** — Browse saved words with pagination, jump back to the source article, and remove entries.
+- **Auto-save mode** — Optionally save words automatically without clicking the star button.
+- **Pronunciation** — Click to hear word pronunciation via the Youdao dict API.
+- **Export to Excel** — Export your entire vocabulary list as an `.xlsx` file.
+- **Side panel control** — Disable the side panel from auto-opening if needed.
 
-Most translation tools give you a definition but leave you with a list of isolated words that are hard to memorize. Transider bridges this gap by capturing not just the word, but the **entire sentence and source URL** where you encountered it. This allows you to review vocabulary in its original context, significantly improving retention and understanding.
+## Tech Stack
 
-Built with a product-first mindset, Transider is designed to be **unobtrusive**. It integrates directly into the browser side panel, allowing users to build their vocabulary library naturally as they browse the web, without context switching.
+- [WXT](https://wxt.dev/) — Browser extension framework (Manifest V3)
+- [React 19](https://react.dev/) — UI
+- [TypeScript](https://www.typescriptlang.org/) — Type safety
+- [Zustand](https://github.com/pmndrs/zustand) — State management (pagination)
+- [Supabase](https://supabase.com/) — Cloud dictionary database
+- [localforage](https://github.com/localForage/localForage) — IndexedDB persistence for saved words
+- [webext-bridge](https://github.com/zikaari/webext-bridge) — Typed messaging between content script and background
+- [xlsx](https://github.com/SheetJS/sheetjs) — Excel export
 
-## ✨ Core Features
+## Architecture
 
-*   **⚡️ Instant Contextual Translation**
-    *   Double-click any English word on any webpage.
-    *   Instantly view definitions, phonetics, and usage examples in a sleek Side Panel.
-    *   **Context Capture**: Automatically grabs the sentence containing the word.
-*   **💾 Smart Vocabulary Notebook**
-    *   Save words with a single click.
-    *   Persists data locally using `IndexedDB` (via `localforage`) for offline access and privacy.
-    *   Review saved words with their original context sentences.
-*   **🔗 Deep Linking**
-    *   Jump back to the exact article where you found a word with one click.
-*   **📂 Data Export**
-    *   Export your vocabulary list to Excel (`.xlsx`) for integration with Anki or other study tools.
-*   **☁️ Cloud Dictionary Integration**
-    *   Powered by a custom Supabase backend to provide rich dictionary data (definitions, tenses, difficulty tags).
+WXT auto-discovers entrypoints in `src/entrypoints/` by filename convention.
 
-## 🛠 Tech Stack
+```
+content script (dblclick) → webext-bridge → background.ts
+  → wxt/storage (volatile state)
+  → chrome.sidePanel.open()
+  → SidePanel.tsx → Supabase query → display definition
+  → User saves → localforage (IndexedDB) via StoredWord class
+```
 
-**Frontend & Extension Architecture**
-*   **Framework**: [WXT](https://wxt.dev/) (Web Extension Tools) + [React 19](https://react.dev/)
-*   **Language**: TypeScript
-*   **State Management**: [Zustand](https://github.com/pmndrs/zustand) (for pagination and global UI state)
-*   **Styling**: CSS Modules with a clean, minimalist design system.
+### Entrypoints
 
-**Data & Storage**
-*   **Local Storage**: [LocalForage](https://github.com/localForage/localForage) (Abstraction over IndexedDB for robust local persistence).
-*   **Cloud Database**: [Supabase](https://supabase.com/) (PostgreSQL) for querying dictionary definitions.
-*   **Messaging**: `webext-bridge` for type-safe communication between Content Scripts, Background Workers, and UI.
+| Entrypoint | Description |
+|---|---|
+| `background.ts` | Service worker. Routes messages, controls side panel opening. |
+| `content.ts` | Content script on all URLs. Detects `dblclick`, validates English words, extracts context sentence. |
+| `sidepanel/` | Main UI panel. Queries Supabase, renders definitions, save/star actions. |
+| `notebook/` | Full-page saved vocabulary list with pagination and export. |
+| `options/` | Settings page (auto-save, mute, disable side panel). |
+| `welcomepage/` | Shown on first install. |
 
-## 🚀 How to Run
+### Storage
 
-Follow these steps to set up the project locally.
+- **wxt/storage** — Runtime state (selected word, toggle settings). Keys in `ELocalStorage` enum.
+- **localforage** (IndexedDB) — Persistent saved words. CRUD via `StoredWord` class.
+- **Supabase** — Read-only dictionary definitions from `dictionary_n` table. Client in `src/utils/supabaseClient.ts`.
+
+## Project Structure
+
+```
+src/
+├── entrypoints/          # WXT entrypoints (auto-discovered by filename)
+│   ├── background.ts     # Service worker
+│   ├── content.ts        # Content script
+│   ├── sidepanel/        # Main UI panel
+│   ├── notebook/         # Vocabulary notebook page
+│   ├── options/          # Settings page
+│   └── welcomepage/      # First-install welcome page
+├── components/           # Reusable React components
+│   ├── AudioPlayer/      # Pronunciation playback
+│   ├── NoteBook/         # Notebook icon with word count badge
+│   ├── Pagination/       # Pagination controls
+│   ├── SaveWord/         # Star toggle (save/remove word)
+│   ├── SidePanelController/  # Disable side panel toggle
+│   └── WordListItemComponent/  # Individual notebook row
+├── models/               # TypeScript types, enums, and classes
+│   ├── ELocalStorage.ts  # WXT storage keys
+│   ├── EMessage.ts       # webext-bridge message types
+│   ├── EOpenFrom.ts      # Side panel open source (PAGE/NOTEBOOK)
+│   ├── ESupaKey.ts       # Supabase credentials (gitignored)
+│   ├── ISupabaseRes.ts   # Raw Supabase response type
+│   ├── ITranslation.ts   # Parsed translation display type
+│   ├── StoredWord.ts     # localforage CRUD class
+│   ├── TSelectedWordPackage.ts  # Word context package type
+│   └── WordListItem.ts   # Notebook display item class
+├── utils/
+│   ├── supabaseClient.ts # Supabase client singleton
+│   ├── translationHandler.ts  # Transform raw data → display format
+│   └── exportExcel.ts    # Export to .xlsx
+└── assets/
+    ├── reset.css         # CSS reset + Google Fonts
+    └── images/           # SVG icons
+```
+
+## Setup
 
 ### Prerequisites
-*   Node.js (v18+)
-*   npm or pnpm
 
-### Installation
+- Node.js 18+
+- npm
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/your-username/transider-v2.git
-    cd transider-v2
-    ```
+### Install
 
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
+```bash
+npm install         # Also runs `wxt prepare` automatically
+```
 
-3.  **Configure Environment**
-    Create a file named `src/models/ESupaKey.ts`. This file is git-ignored for security.
-    ```typescript
-    // src/models/ESupaKey.ts
-    export enum ESupaKey {
-        SUPABASE_URL = "YOUR_SUPABASE_URL",
-        SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
-    }
-    ```
+### Configure Supabase
 
-4.  **Run Development Server**
-    ```bash
-    npm run dev
-    # Or to test in Firefox
-    npm run dev:firefox
-    ```
-    This will open a new Chrome instance with the extension loaded.
+Create `src/models/ESupaKey.ts` (gitignored):
 
-## 💡 Highlights & Reflections
+```ts
+export enum ESupaKey {
+  SUPABASE_URL = "YOUR_SUPABASE_URL",
+  SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"
+}
+```
 
-### Product Thinking
-*   **Frictionless UX**: The decision to use the **Side Panel API** instead of a popup was intentional. It allows the translation to coexist with the content, preventing the "pop-up fatigue" users often face with extension overlays.
-*   **Context is King**: The core value proposition isn't the translation (which is a commodity) but the *context*. By saving the sentence, we transform a simple dictionary look-up into a learning moment.
+### Development
 
-### Technical Challenges & Solutions
-*   **Extension Architecture (MV3)**: Moving to Manifest V3 required a robust handling of the service worker lifecycle. I implemented `webext-bridge` to ensure reliable, typed message passing between the ephemeral background script and the content script.
-*   **Performance**: To ensure the "double-click" detection doesn't degrade page performance, event listeners are optimized, and heavy operations (like dictionary fetching) are offloaded to the Side Panel, keeping the Content Script lightweight.
-*   **Data Persistence**: Balancing local user data (saved words) with cloud data (definitions). `localforage` was chosen over `chrome.storage` for its easier API and better support for larger datasets (like a growing notebook).
+```bash
+npm run dev           # Chrome
+npm run dev:firefox   # Firefox
+npm run compile       # Type-check only (no build)
+```
 
-### Future Roadmap
-*   **Cross-Device Sync**: Implementing user authentication (Supabase Auth) to sync the notebook across devices.
-*   **Spaced Repetition**: Integrating a review algorithm (like SuperMemo-2) directly into the notebook.
-*   **AI Enhancements**: Using an LLM to generate custom example sentences or explain the word in the specific context of the article.
+### Production
 
----
-*Created by Yong Xie*
+```bash
+npm run build          # Chrome
+npm run build:firefox  # Firefox
+npm run zip            # Package for store submission
+```
+
+## License
+
+MIT
